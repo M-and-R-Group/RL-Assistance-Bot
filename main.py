@@ -12,13 +12,14 @@ import random
 from random import randint
 import sys
 import datetime
+from discord_slash import SlashCommand, SlashContext
 
 
 import linecache
 
 token = os.environ['token']
-client = commands.Bot(command_prefix="&", intents=discord.Intents.all())
-
+client = commands.Bot(command_prefix="^", intents=discord.Intents.all())
+slash = SlashCommand(client, sync_commands=True)
 
 
 @client.command()
@@ -57,7 +58,7 @@ async def on_message(msg):
 				print(channel_id)
 				channel_id = int(channel_id)
 				channel = client.get_guild(916352060520267847).get_channel(channel_id)
-
+				print(channel)
 				em = discord.Embed(title="New Message", description=f"{msg.content}", colour=discord.Colour.green())
 				em.set_footer(text=f"{msg.author} | {msg.author.id}")
 				em.timestamp = datetime.datetime.utcnow()
@@ -78,14 +79,14 @@ async def on_message(msg):
     				modmailperms: discord.PermissionOverwrite(view_channel=True)
 				}
 				category = discord.utils.get(guild.categories, name = "Tickets")
-				channel = await guild.create_text_channel(msg.author.name, category=category, soverwrites=overwrites, reason=f"Create a ticket for {msg.author}")
+				channel = await guild.create_text_channel(msg.author.name, category=category, overwrites=overwrites, reason=f"Create a ticket for {msg.author}")
 				channel_id = channel.id
 				print(channel_id)
 				with open(f"Tickets/{msg.author.id}.txt", "w") as file:
 					file.write(f"{channel_id}\n{msg.author.id}")
-				em = discord.Embed(title="New Ticket", description="Thanks for creating a ticket. Support staff will get intouch shortly", colour=discord.Colour.green())
+				em = discord.Embed(title="New Ticket", description="Thanks for creating a ticket. In the meantime, please describe the reason for this ticket in as much detail as possible. If you don't get a reply in 24 hours, please ping a staff member.\n\nMisuse of the ticketing system will result in action being taken. We reserve the right to refuse assistance to any user without explanation. Your data (User ID) is stored by the bot so it can DM you support staff responses. You reserve the right to have your data be removed upon request, however, your data will be deleted from this system when the ticket is closed.", colour=discord.Colour.green())
 				await msg.reply(embed=em, mention_author=False)
-				em = discord.Embed(title=f"New Ticket for {msg.author}", description=f"To reply to this message, type `&reply {msg.author.id} <message>`. To get a list of commands, type `&help`. To chat with staff, just type below. Any problems, contact one of the Developers", colour=discord.Colour.blue())
+				em = discord.Embed(title=f"New Ticket for {msg.author}", description=f"To reply to this message, type `^reply {msg.author.id} <message>`. To get a list of commands, type `^help`. To chat with staff, just type below. Any problems, contact one of the Developers", colour=discord.Colour.blue())
 				em.add_field(name="\n\n**User**",value=f"{msg.author.mention}\n{msg.author.id}", inline=True)
 				#user = msg.author
 				#for role in user.roles:
@@ -102,13 +103,39 @@ async def on_message(msg):
 				em = discord.Embed(title="New Ticket", description=f"{msg.author.mention} opened a new ticket. Go to {channel.mention}")
 				em.timestamp = datetime.datetime.utcnow()
 				log = await ticket_logs.send(embed=em)
-				
-			
-				
-@client.command()
-@
-			
+				with open(f"Tickets/{msg.author.id}.txt", "a") as file:
+					file.write(f"\n{log.id}\n0")
 
+@slash.slash(name="Claim", description="For support staff only. Claim a support ticket")
+@commands.has_role(972831136705314816)
+async def claim(ctx, member: discord.Member):
+	path = f"Tickets/{member.id}.txt"
+	if os.path.exists(path)==True:
+		support_staff = ctx.author.id
+		message_claimed = linecache.getline(f"Tickets/{member.id}.txt", 4)
+		if message_claimed == "0":
+			with open(f"Tickets/{msg.author.id}.txt", "a") as file:
+						file.write(f"1\n{ctx.author.id}")
+			em = discord.Embed(title="✅ | Ticket Claimed", description="You have successfully claimed the ticket. A message will be sent to the user.", colour=discord.Colour.green())
+			em.timestamp = datetime.datetime.utcnow()
+			await ctx.send(embed=em)
+			em = discord.Embed(title="Ticket Claimed", description=f"You're ticket has been claimed by {ctx.author.mention}. You should recieve a message shortly.",colour=discord.Colour.green())
+			em.timestamp = datetime.datetime.utcnow()
+			member = linecache.getline(f"Tickets/{member.id}.txt", 2)
+			member = int(member)
+			member=client.get_member(member)
+			await member.send(embed=em)
+		else:
+			support_staff = linecache.getline(f"Tickets/{member.id}.txt", 5)
+
+			em = discord.Embed(title="❌ | Claim Ticket", description=f"Ticket has already been claimed by {support_staff}", colour=discord.Colour.red())
+			em.timestamp = datetime.datetime.utcnow()
+			await ctx.send(embed=em)
+			
+	else:
+		em = discord.Embed(title="❌ | Ticket Error", description="The ticket can't be found. This may be because the `.txt` file is corrupted or can't be found.", colour=discord.Colour.red())
+		em.timestamp = datetime.datetime.utcnow()
+		await ctx.reply(embed=em, emphera)
 
 keep_alive()
 
