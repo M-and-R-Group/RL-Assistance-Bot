@@ -12,19 +12,18 @@ import random
 from random import randint
 import sys
 import datetime
-from discord_slash import SlashCommand, SlashContext
-
-
+from discord_slash import SlashCommand
 import linecache
 
 token = os.environ['token']
-client = commands.Bot(command_prefix="^", intents=discord.Intents.all())
+client = commands.Bot(command_prefix="rl!", intents=discord.Intents.all())
 slash = SlashCommand(client, sync_commands=True)
 
 
-@client.command()
-@commands.has_role("Moderator [MR]")
-async def status(self, ctx:commands.Context):
+
+
+@slash.slash(name="Status", description="Get the status of the bot")
+async def status(ctx):
     curr_time = time.localtime()
     curr_clock = time.strftime("%H:%M", curr_time)
     em = discord.Embed(title="RL Assistance is online! 😃", colour=discord.Colour.green())
@@ -40,7 +39,7 @@ async def on_ready():
 
 
 
-@client.event
+@client.listen("on_message")
 async def on_message(msg):
 	if isinstance(msg.channel, discord.channel.DMChannel):
 		
@@ -86,7 +85,7 @@ async def on_message(msg):
 					file.write(f"{channel_id}\n{msg.author.id}")
 				em = discord.Embed(title="New Ticket", description="Thanks for creating a ticket. In the meantime, please describe the reason for this ticket in as much detail as possible. If you don't get a reply in 24 hours, please ping a staff member.\n\nMisuse of the ticketing system will result in action being taken. We reserve the right to refuse assistance to any user without explanation. Your data (User ID) is stored by the bot so it can DM you support staff responses. You reserve the right to have your data be removed upon request, however, your data will be deleted from this system when the ticket is closed.", colour=discord.Colour.green())
 				await msg.reply(embed=em, mention_author=False)
-				em = discord.Embed(title=f"New Ticket for {msg.author}", description=f"To reply to this message, type `^reply {msg.author.id} <message>`. To get a list of commands, type `^help`. To chat with staff, just type below. Any problems, contact one of the Developers", colour=discord.Colour.blue())
+				em = discord.Embed(title=f"New Ticket for {msg.author}", description=f"To reply to this message, type `/reply {msg.author.id} <message>`. To get a list of commands, type `/help`. To chat with staff, just type below. Any problems, contact one of the Developers", colour=discord.Colour.blue())
 				em.add_field(name="\n\n**User**",value=f"{msg.author.mention}\n{msg.author.id}", inline=True)
 				#user = msg.author
 				#for role in user.roles:
@@ -105,10 +104,13 @@ async def on_message(msg):
 				log = await ticket_logs.send(embed=em)
 				with open(f"Tickets/{msg.author.id}.txt", "a") as file:
 					file.write(f"\n{log.id}\n0")
-
-@slash.slash(name="Claim", description="For support staff only. Claim a support ticket")
+				
+			
+				
+@slash.slash(name = "Claim", description="Claim a ticket using the user's ID")
 @commands.has_role(972831136705314816)
 async def claim(ctx, member: discord.Member):
+	print(member)
 	path = f"Tickets/{member.id}.txt"
 	if os.path.exists(path)==True:
 		support_staff = ctx.author.id
@@ -125,18 +127,93 @@ async def claim(ctx, member: discord.Member):
 			member = int(member)
 			member=client.get_member(member)
 			await member.send(embed=em)
-		else:
+		elif message_claimed == "1":
 			support_staff = linecache.getline(f"Tickets/{member.id}.txt", 5)
-
-			em = discord.Embed(title="❌ | Claim Ticket", description=f"Ticket has already been claimed by {support_staff}", colour=discord.Colour.red())
+			support_staff = int(support_staff)
+			support_staff = client.get_user(support_staff)
+			em = discord.Embed(title="❌ | Claim Ticket", description=f"Ticket has already been claimed by {support_staff.mention}", colour=discord.Colour.red())
 			em.timestamp = datetime.datetime.utcnow()
 			await ctx.send(embed=em)
+		
+	else:
+		em = discord.Embed(title="❌ | Ticket Error", description="This ticket cannot be found. This may be because the ticket file is corrpupted or the ticket has been resolved.", colour=discord.Colour.red())
+		em.timestamp = datetime.datetime.utcnow()
+		await ctx.reply(embed=em, hidden=True)
+
+@slash.slash(name="Reply", description="Reply to the ticket")
+@commands.has_role(972831136705314816)
+async def reply(ctx, member: discord.Member, *, message):
+	path = f"Tickets/{member.id}.txt"
+	if os.path.exists(path)==True:
+		try:
+			em = discord.Embed(title="📨 | Message Recieved", description=f"You have recieved a message from {ctx.author.mention}:\n\n{message}",colour=discord.Colour.blue())
+			em.timestamp = datetime.datetime.utcnow()
+			await member.send(embed=em)
+			em = discord.Embed(title="📨 | Message Sent", description=f"{message}",colour=discord.Colour.blue())
+			em.timestamp = datetime.datetime.utcnow()
+			await ctx.send(embed=em)
+		except:
+			em = discord.Embed(title="❌ | Message Error", description=f"There was an error, please try again",colour=discord.Colour.red())
+			em.timestamp = datetime.datetime.utcnow()
+			await ctx.reply(embed=em, hidden=True)
 			
 	else:
-		em = discord.Embed(title="❌ | Ticket Error", description="The ticket can't be found. This may be because the `.txt` file is corrupted or can't be found.", colour=discord.Colour.red())
+		em = discord.Embed(title="❌ | Message Error", description=f"There is no ticket for this user",colour=discord.Colour.red())
 		em.timestamp = datetime.datetime.utcnow()
-		await ctx.reply(embed=em, emphera)
+		await ctx.reply(embed=em, hidden=True)
 
+@slash.slash(name="Close", description="Close the ticket")
+@commands.has_role(972831136705314816)
+async def close(ctx, member:discord.Member, message=None):
+	path = f"Tickets/{member.id}.txt"
+	if os.path.exists(path)==True:
+		#try:
+			if message == None:
+				channel = linecache.getline(f"Tickets/{member.id}.txt", 1)
+				channel = int(channel)
+				channel = client.get_channel(channel)
+				await channel.delete(reason=f"Ticket Closed by {ctx.author}")
+				em = discord.Embed(title="📨 | Ticket Closed", description=f"Your ticket has been closed. If you did not want this, please open a new ticket",colour=discord.Colour.blue())
+				em.timestamp = datetime.datetime.utcnow()
+				await member.send(embed=em)
+				message_claimed = linecache.getline(f"Tickets/{member.id}.txt", 3)
+				message_claimed = int(message_claimed)
+				em = discord.Embed(title="📨 | Ticket Closed", description=f"{member.mention}'s ticket was closed by {msg.author.mention}",colour=discord.Colour.blue())
+				em.set_footer(text=f"{member.id} | Time Displayed is date ticket closed:")
+				em.timestamp = datetime.datetime.utcnow()
+				channel = bot.get_channel(972880414119186432)
+				message_claimed_id = await channel.fetch_message(message_claimed)
+				await channel.message_claimed_id.edit(embed=em)
+				os.remove(f"Tickets/{member.id}")
+			else:
+				channel = linecache.getline(f"Tickets/{member.id}.txt", 1)
+				channel = int(channel)
+				channel = client.get_channel(channel)
+				await channel.delete(reason=f"Ticket Closed by {ctx.author}")
+				em = discord.Embed(title="📨 | Ticket Closed", description=f"Your ticket has been closed because:```{message}```\nf you did not want this, please open a new ticket",colour=discord.Colour.blue())
+				em.timestamp = datetime.datetime.utcnow()
+				await member.send(embed=em)
+				message_claimed = linecache.getline(f"Tickets/{member.id}.txt", 3)
+				message_claimed = int(message_claimed)
+				em = discord.Embed(title="📨 | Ticket Closed", description=f"{member.mention}'s ticket was closed by {msg.author.mention}.\n\nReason:```{message}```",colour=discord.Colour.blue())
+				em.set_footer(text=f"{member.id} | Time Displayed is date ticket closed:")
+				em.timestamp = datetime.datetime.utcnow()
+				channel = bot.get_channel(972880414119186432)
+				message_claimed_id = await channel.fetch_message(message_claimed)
+				await channel.message_claimed_id.edit(embed=em)
+				os.remove(f"Tickets/{member.id}")
+			
+		#except:
+			#em = discord.Embed(title="❌ | Close Error", description=f"I encountered a problem, please try again",colour=discord.Colour.red())
+			#em.timestamp = datetime.datetime.utcnow()
+			#await ctx.reply(embed=em, hidden=True)
+	else:
+		em = discord.Embed(title="❌ | Close Error", description=f"There is no ticket for this user",colour=discord.Colour.red())
+		em.timestamp = datetime.datetime.utcnow()
+		await ctx.reply(embed=em, hidden=True)
+			
+		
+		
 keep_alive()
 
 client.run(token)
