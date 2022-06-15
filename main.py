@@ -47,7 +47,7 @@ async def on_message(msg):
 			pass
 		else:
 			print('1')
-			guild =  client.get_guild(916352060520267847)
+			guild =  client.get_guild(9163520605220267847)
 			path = f"Tickets/{msg.author.id}.txt"
 
 			if os.path.exists(path)==True:
